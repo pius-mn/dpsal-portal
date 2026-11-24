@@ -1,0 +1,154 @@
+{
+  "doctype": "DocType",
+  "name": "Client Verification Request",
+  "module": "Audit Portal",
+  "autoname": "VREQ-.#####",
+  "engine": "InnoDB",
+  "track_changes": 1,
+  "sort_field": "modified",
+  "sort_order": "DESC",
+  "field_order": [
+    "customer",
+    "compliance_requirement",
+    "document_title",
+    "column_break_document",
+    "status",
+    "section_break_submission",
+    "attachment",
+    "submitted_by",
+    "submitted_on",
+    "section_break_review",
+    "reviewed_by",
+    "reviewed_on",
+    "rejection_reason"
+  ],
+  "fields": [
+    {
+      "fieldname": "customer",
+      "fieldtype": "Link",
+      "label": "Customer",
+      "options": "Customer",
+      "reqd": 1,
+      "read_only": 1,
+      "in_list_view": 1,
+      "in_standard_filter": 1,
+      "permlevel": 0
+    },
+    {
+      "fieldname": "compliance_requirement",
+      "fieldtype": "Data",
+      "label": "Compliance Requirement Row",
+      "read_only": 1,
+      "permlevel": 0
+    },
+    {
+      "fieldname": "document_title",
+      "fieldtype": "Data",
+      "label": "Document",
+      "reqd": 1,
+      "read_only": 1,
+      "in_list_view": 1,
+      "permlevel": 0
+    },
+    {
+      "fieldname": "column_break_document",
+      "fieldtype": "Column Break",
+      "permlevel": 0
+    },
+    {
+      "fieldname": "status",
+      "fieldtype": "Select",
+      "label": "Review Status",
+      "options": "Pending Review\nVerified\nRejected\nSuperseded",
+      "default": "Pending Review",
+      "reqd": 1,
+      "in_list_view": 1,
+      "in_standard_filter": 1,
+      "permlevel": 1
+    },
+    {
+      "fieldname": "section_break_submission",
+      "fieldtype": "Section Break",
+      "label": "Submission",
+      "permlevel": 0
+    },
+    {
+      "fieldname": "attachment",
+      "fieldtype": "Attach",
+      "label": "Submitted File",
+      "read_only": 1,
+      "permlevel": 0
+    },
+    {
+      "fieldname": "submitted_by",
+      "fieldtype": "Link",
+      "label": "Submitted By",
+      "options": "User",
+      "read_only": 1,
+      "permlevel": 0
+    },
+    {
+      "fieldname": "submitted_on",
+      "fieldtype": "Datetime",
+      "label": "Submitted On",
+      "read_only": 1,
+      "in_list_view": 1,
+      "permlevel": 0
+    },
+    {
+      "fieldname": "section_break_review",
+      "fieldtype": "Section Break",
+      "label": "Review",
+      "permlevel": 1
+    },
+    {
+      "fieldname": "reviewed_by",
+      "fieldtype": "Link",
+      "label": "Reviewed By",
+      "options": "User",
+      "read_only": 1,
+      "in_list_view": 1,
+      "permlevel": 1
+    },
+    {
+      "fieldname": "reviewed_on",
+      "fieldtype": "Datetime",
+      "label": "Reviewed On",
+      "read_only": 1,
+      "permlevel": 1
+    },
+    {
+      "fieldname": "rejection_reason",
+      "fieldtype": "Small Text",
+      "label": "Reviewer Note",
+      "permlevel": 1
+    }
+  ],
+  "permissions": [
+    {
+      "role": "System Manager",
+      "permlevel": 0,
+      "read": 1,
+      "report": 1,
+      "export": 1
+    },
+    {
+      "role": "System Manager",
+      "permlevel": 1,
+      "read": 1,
+      "write": 1
+    },
+    {
+      "role": "Audit Document Reviewer",
+      "permlevel": 0,
+      "read": 1,
+      "write": 1
+    },
+    {
+      "role": "Audit Document Reviewer",
+      "permlevel": 1,
+      "read": 1,
+      "write": 1
+    }
+  ]
+}

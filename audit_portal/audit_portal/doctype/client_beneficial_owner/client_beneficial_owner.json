@@ -1,0 +1,25 @@
+{
+  "doctype": "DocType",
+  "name": "Client Beneficial Owner",
+  "module": "Audit Portal",
+  "engine": "InnoDB",
+  "istable": 1,
+  "track_changes": 1,
+  "field_order": ["bo_name", "domicile", "person", "id_reg_no", "ownership_form", "ownership_pct", "owner_since", "phone", "email", "is_board"],
+  "fields": [
+    {"fieldname": "bo_name", "fieldtype": "Data", "label": "Beneficial owner name", "reqd": 1, "in_list_view": 1},
+    {"fieldname": "domicile", "fieldtype": "Select", "label": "Domicile", "options": "\nNational\nInternational"},
+    {"fieldname": "person", "fieldtype": "Select", "label": "Person type", "options": "\nNatural Person\nBody Incorporate"},
+    {"fieldname": "id_reg_no", "fieldtype": "Data", "label": "ID or registration number"},
+    {"fieldname": "ownership_form", "fieldtype": "Data", "label": "Ownership form"},
+    {"fieldname": "ownership_pct", "fieldtype": "Percent", "label": "Ownership percentage"},
+    {"fieldname": "owner_since", "fieldtype": "Date", "label": "Owner since"},
+    {"fieldname": "phone", "fieldtype": "Data", "label": "Phone"},
+    {"fieldname": "email", "fieldtype": "Data", "label": "Email"},
+    {"fieldname": "is_board", "fieldtype": "Check", "label": "Is a board member"}
+  ],
+  "permissions": [
+    {"role": "System Manager", "read": 1, "write": 1, "create": 1, "delete": 1},
+    {"role": "Audit Client", "read": 1}
+  ]
+}

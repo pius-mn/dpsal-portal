@@ -1,0 +1,38 @@
+{
+  "doctype": "DocType",
+  "name": "Client Budget Line",
+  "module": "Audit Portal",
+  "engine": "InnoDB",
+  "istable": 1,
+  "track_changes": 1,
+  "field_order": [
+    "budget_line",
+    "budget_period",
+    "currency",
+    "monthly_budget",
+    "annual_budget",
+    "actual_spend",
+    "operated_by",
+    "payment_due",
+    "penalty_interest",
+    "credit_facility",
+    "remarks"
+  ],
+  "fields": [
+    {"fieldname": "budget_line", "fieldtype": "Data", "label": "Budget line", "reqd": 1, "in_list_view": 1},
+    {"fieldname": "budget_period", "fieldtype": "Data", "label": "Budget period", "description": "For example, FY2026 or January 2026"},
+    {"fieldname": "currency", "fieldtype": "Link", "label": "Currency", "options": "Currency"},
+    {"fieldname": "monthly_budget", "fieldtype": "Currency", "label": "Monthly budget"},
+    {"fieldname": "annual_budget", "fieldtype": "Currency", "label": "Annual budget"},
+    {"fieldname": "actual_spend", "fieldtype": "Currency", "label": "Actual spend"},
+    {"fieldname": "operated_by", "fieldtype": "Data", "label": "Operated by"},
+    {"fieldname": "payment_due", "fieldtype": "Date", "label": "Next payment due"},
+    {"fieldname": "penalty_interest", "fieldtype": "Currency", "label": "Penalty and interest"},
+    {"fieldname": "credit_facility", "fieldtype": "Data", "label": "Supplier credit facility"},
+    {"fieldname": "remarks", "fieldtype": "Small Text", "label": "Notes"}
+  ],
+  "permissions": [
+    {"role": "System Manager", "read": 1, "write": 1, "create": 1, "delete": 1},
+    {"role": "Audit Client", "read": 1}
+  ]
+}

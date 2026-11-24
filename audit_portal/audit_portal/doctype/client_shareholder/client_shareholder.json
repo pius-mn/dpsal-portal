@@ -1,0 +1,27 @@
+{
+  "doctype": "DocType",
+  "name": "Client Shareholder",
+  "module": "Audit Portal",
+  "engine": "InnoDB",
+  "istable": 1,
+  "track_changes": 1,
+  "field_order": ["member_name", "person_nature", "domicile", "id_reg_no", "share_category", "share_pct", "shares", "share_price", "member_since", "phone", "email", "is_board"],
+  "fields": [
+    {"fieldname": "member_name", "fieldtype": "Data", "label": "Shareholder name", "reqd": 1, "in_list_view": 1},
+    {"fieldname": "person_nature", "fieldtype": "Select", "label": "Person type", "options": "\nNatural Person\nBody Incorporate"},
+    {"fieldname": "domicile", "fieldtype": "Select", "label": "Domicile", "options": "\nNational\nInternational"},
+    {"fieldname": "id_reg_no", "fieldtype": "Data", "label": "ID or registration number"},
+    {"fieldname": "share_category", "fieldtype": "Data", "label": "Share category"},
+    {"fieldname": "share_pct", "fieldtype": "Percent", "label": "Ownership percentage"},
+    {"fieldname": "shares", "fieldtype": "Int", "label": "Number of shares"},
+    {"fieldname": "share_price", "fieldtype": "Currency", "label": "Share value"},
+    {"fieldname": "member_since", "fieldtype": "Date", "label": "Member since"},
+    {"fieldname": "phone", "fieldtype": "Data", "label": "Phone"},
+    {"fieldname": "email", "fieldtype": "Data", "label": "Email"},
+    {"fieldname": "is_board", "fieldtype": "Select", "label": "Board role", "options": "\nNo\nYes\nExecutive"}
+  ],
+  "permissions": [
+    {"role": "System Manager", "read": 1, "write": 1, "create": 1, "delete": 1},
+    {"role": "Audit Client", "read": 1}
+  ]
+}

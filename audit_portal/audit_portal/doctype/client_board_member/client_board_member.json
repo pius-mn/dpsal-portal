@@ -1,0 +1,25 @@
+{
+  "doctype": "DocType",
+  "name": "Client Board Member",
+  "module": "Audit Portal",
+  "engine": "InnoDB",
+  "istable": 1,
+  "track_changes": 1,
+  "field_order": ["member_name", "person", "resident_in_rwanda", "designation_regulator", "designation_internal", "since", "executive", "role", "phone", "email"],
+  "fields": [
+    {"fieldname": "member_name", "fieldtype": "Data", "label": "Member name", "reqd": 1, "in_list_view": 1},
+    {"fieldname": "person", "fieldtype": "Select", "label": "Person type", "options": "\nNatural Person\nBody Incorporate"},
+    {"fieldname": "resident_in_rwanda", "fieldtype": "Select", "label": "Resident in Rwanda", "options": "\nYes\nNo"},
+    {"fieldname": "designation_regulator", "fieldtype": "Data", "label": "Registered designation"},
+    {"fieldname": "designation_internal", "fieldtype": "Data", "label": "Internal designation"},
+    {"fieldname": "since", "fieldtype": "Date", "label": "Appointed on"},
+    {"fieldname": "executive", "fieldtype": "Select", "label": "Board role", "options": "\nExecutive\nNon-Executive"},
+    {"fieldname": "role", "fieldtype": "Data", "label": "Role"},
+    {"fieldname": "phone", "fieldtype": "Data", "label": "Phone"},
+    {"fieldname": "email", "fieldtype": "Data", "label": "Email"}
+  ],
+  "permissions": [
+    {"role": "System Manager", "read": 1, "write": 1, "create": 1, "delete": 1},
+    {"role": "Audit Client", "read": 1}
+  ]
+}

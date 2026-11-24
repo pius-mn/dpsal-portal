@@ -1,0 +1,149 @@
+{
+  "doctype": "DocType",
+  "name": "Compliance Certificate",
+  "module": "Audit Portal",
+  "engine": "InnoDB",
+  "istable": 1,
+  "track_changes": 1,
+  "field_order": [
+    "document_title",
+    "doc_type",
+    "is_required",
+    "has_expiry",
+    "short_alias",
+    "doc_number",
+    "issuing_authority",
+    "issue_date",
+    "expiry_date",
+    "last_updated",
+    "attachment",
+    "status",
+    "submitted_by",
+    "submitted_on",
+    "verified_by",
+    "verified_on",
+    "rejection_reason",
+    "verification_request"
+  ],
+  "fields": [
+    {
+      "fieldname": "document_title",
+      "fieldtype": "Link",
+      "label": "Document Title",
+      "options": "Client Document Master",
+      "reqd": 1,
+      "in_list_view": 1
+    },
+    {
+      "fieldname": "doc_type",
+      "fieldtype": "Select",
+      "label": "Document category",
+      "options": "\nStatutory\nAdministrative\nContract\nLicence\nKYC\nID/Passport\nReport\nOther"
+    },
+    {
+      "fieldname": "is_required",
+      "fieldtype": "Check",
+      "label": "Required",
+      "default": "1"
+    },
+    {
+      "fieldname": "has_expiry",
+      "fieldtype": "Check",
+      "label": "Has expiry date"
+    },
+    {
+      "fieldname": "short_alias",
+      "fieldtype": "Data",
+      "label": "Reference"
+    },
+    {
+      "fieldname": "doc_number",
+      "fieldtype": "Data",
+      "label": "Document number"
+    },
+    {
+      "fieldname": "issuing_authority",
+      "fieldtype": "Data",
+      "label": "Issuing authority"
+    },
+    {
+      "fieldname": "issue_date",
+      "fieldtype": "Date",
+      "label": "Issue date"
+    },
+    {
+      "fieldname": "expiry_date",
+      "fieldtype": "Date",
+      "label": "Expiry date"
+    },
+    {
+      "fieldname": "last_updated",
+      "fieldtype": "Date",
+      "label": "Last updated"
+    },
+    {
+      "fieldname": "attachment",
+      "fieldtype": "Attach",
+      "label": "Private attachment",
+      "read_only": 1
+    },
+    {
+      "fieldname": "status",
+      "fieldtype": "Select",
+      "label": "Review status",
+      "options": "\nNot Submitted\nPending Review\nVerified\nRejected",
+      "default": "Not Submitted",
+      "read_only": 1,
+      "in_list_view": 1
+    },
+    {
+      "fieldname": "submitted_by",
+      "fieldtype": "Link",
+      "label": "Submitted by",
+      "options": "User",
+      "read_only": 1
+    },
+    {
+      "fieldname": "submitted_on",
+      "fieldtype": "Datetime",
+      "label": "Submitted on",
+      "read_only": 1
+    },
+    {
+      "fieldname": "verified_by",
+      "fieldtype": "Link",
+      "label": "Verified by",
+      "options": "User",
+      "read_only": 1
+    },
+    {
+      "fieldname": "verified_on",
+      "fieldtype": "Datetime",
+      "label": "Verified on",
+      "read_only": 1
+    },
+    {
+      "fieldname": "rejection_reason",
+      "fieldtype": "Small Text",
+      "label": "Reason for rejection",
+      "read_only": 1
+    },
+    {
+      "fieldname": "verification_request",
+      "fieldtype": "Link",
+      "label": "Latest verification request",
+      "options": "Client Verification Request",
+      "read_only": 1,
+      "no_copy": 1
+    }
+  ],
+  "permissions": [
+    {
+      "role": "System Manager",
+      "read": 1,
+      "write": 1,
+      "create": 1,
+      "delete": 1
+    }
+  ]
+}

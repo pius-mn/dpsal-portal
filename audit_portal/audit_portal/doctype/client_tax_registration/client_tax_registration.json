@@ -1,0 +1,30 @@
+{
+  "doctype": "DocType",
+  "name": "Client Tax Registration",
+  "module": "Audit Portal",
+  "engine": "InnoDB",
+  "istable": 1,
+  "track_changes": 1,
+  "field_order": ["tax_type", "applies_to", "rate", "exempted", "frequency", "period", "due_date", "declared_date", "payment_date", "reg_date", "dereg_date", "financial_year", "facility_applied", "why_not", "remarks"],
+  "fields": [
+    {"fieldname": "tax_type", "fieldtype": "Data", "label": "Tax type", "reqd": 1, "in_list_view": 1},
+    {"fieldname": "applies_to", "fieldtype": "Select", "label": "Applies to this organization", "options": "\nYes\nNo"},
+    {"fieldname": "rate", "fieldtype": "Data", "label": "Rate"},
+    {"fieldname": "exempted", "fieldtype": "Select", "label": "Tax exempt", "options": "\nYes\nNo"},
+    {"fieldname": "frequency", "fieldtype": "Select", "label": "Filing frequency", "options": "\nFortnightly\nMonthly\nQuarterly\nAnnually"},
+    {"fieldname": "period", "fieldtype": "Data", "label": "Current period"},
+    {"fieldname": "due_date", "fieldtype": "Date", "label": "Next filing due"},
+    {"fieldname": "declared_date", "fieldtype": "Date", "label": "Last declared"},
+    {"fieldname": "payment_date", "fieldtype": "Date", "label": "Last payment date"},
+    {"fieldname": "reg_date", "fieldtype": "Date", "label": "Registration date"},
+    {"fieldname": "dereg_date", "fieldtype": "Date", "label": "Deregistration date"},
+    {"fieldname": "financial_year", "fieldtype": "Data", "label": "Financial year"},
+    {"fieldname": "facility_applied", "fieldtype": "Data", "label": "Tax facility"},
+    {"fieldname": "why_not", "fieldtype": "Small Text", "label": "Reason if not applicable"},
+    {"fieldname": "remarks", "fieldtype": "Small Text", "label": "Notes"}
+  ],
+  "permissions": [
+    {"role": "System Manager", "read": 1, "write": 1, "create": 1, "delete": 1},
+    {"role": "Audit Client", "read": 1}
+  ]
+}
