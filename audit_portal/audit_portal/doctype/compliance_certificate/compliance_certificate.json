@@ -91,7 +91,7 @@
       "fieldname": "status",
       "fieldtype": "Select",
       "label": "Review status",
-      "options": "\nNot Submitted\nPending Review\nVerified\nRejected",
+      "options": "\nNot Submitted\nPending Review\nVerified\nRejected\nSuperseded",
       "default": "Not Submitted",
       "read_only": 1,
       "in_list_view": 1

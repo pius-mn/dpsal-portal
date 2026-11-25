@@ -3,7 +3,7 @@ name = "audit_portal"
 authors = [
     { name = "pius", email = "info@ventrionicsystems.co.ke"}
 ]
-description = "Dpsal client portal"
+description = "DP SAL client portal"
 requires-python = ">=3.14"
 readme = "README.md"
 dynamic = ["version"]

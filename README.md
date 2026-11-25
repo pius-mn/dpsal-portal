@@ -1,6 +1,6 @@
-### Audit Portal
+### DP SAL Portal
 
-Client workspace for audit and compliance services.
+Client workspace for audit and compliance services. The Frappe app/module name remains `audit_portal` so existing bench commands and imports continue to work.
 
 ### Installation
 
@@ -15,7 +15,7 @@ bench build --app audit_portal
 bench restart
 ```
 
-Replace the repository URL and site name with the deployment's values. Before schema synchronization, `audit_portal.customizations.setup` idempotently installs the app-owned Customer and Quotation profile fields and Customer Type Property Setter. After child DocTypes are synced, the `after_migrate` hook provisions the Customer dossier tab and child table fields, and ensures the required portal roles exist. No customization depends on data from the development bench.
+Replace the repository URL and site name with the deployment's values. `after_install` runs the full idempotent setup after DocType synchronization, so a fresh bench is ready immediately. `before_migrate` and `after_migrate` repeat the same setup for upgrades. The setup installs Customer and Quotation profile fields, the Customer Type Property Setter, Customer dossier child-table fields, default document masters, and required portal roles. No customization depends on data from the development bench.
 
 The app schema is provisioned directly from DocType definitions and `audit_portal/customizations.py`. No legacy data migrations or patch replay are needed when deploying in a new bench environment; install the app and migrate normally.
 
@@ -27,7 +27,7 @@ The app schema is provisioned directly from DocType definitions and `audit_porta
 
 To authorize a staff member to review uploads, open their **User** record in Desk and add the **Audit Document Reviewer** role. No code change is needed for each staff member. This role has read/write access to verification requests, while review actions still enforce the request's current state and update the Customer compliance row and activity timeline. System Managers retain access.
 
-To review a submission, use Desk search to open the **Client Verification Request** list. Filter by customer or review status, then open a request to see the private file and activity timeline. Set **Review Status** to `Verified` or `Rejected`, fill in the **Reviewer Note** if rejecting, and save. The submission fields are read-only at perm level 0; only the Review section (perm level 1) is editable by the reviewer. Saving triggers the controller, which stamps the reviewer, mirrors the outcome to the Customer compliance row, and appends an activity comment.
+To review a submission, use Desk search to open the **Client Verification Request** list. Filter by customer or review status, then open a request to see the private file and activity timeline. Set **Review Status** to `Verified`, `Rejected`, or `Superseded`, fill in the **Reviewer Note** if rejecting, and save. The submission fields are read-only at perm level 0; only the Review section (perm level 1) is editable by the reviewer. Saving triggers the controller, which stamps the reviewer, mirrors the outcome to the Customer compliance row, and appends an activity comment. Credential requests and the Customer Credentials tab offer **Reveal credential** for System Managers, Administrators, and Audit Document Reviewers with access to the linked request; each reveal is recorded in the activity timeline without storing the password in a comment.
 
 The client records workspace uses shared, field-driven frappe-ui components for lists, edit dialogs, and statuses. Customer-facing record APIs resolve the Customer from the authenticated session; the browser cannot choose an organization to read or mutate. Evidence is stored as a private Frappe File and must be reviewed by authorized staff.
 

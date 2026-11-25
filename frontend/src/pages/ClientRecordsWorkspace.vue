@@ -13,14 +13,17 @@ import {
 	appointmentFields,
 	auditRecordTypes,
 	buildRecordDefinitions,
+	credentialFields,
 	customerFields,
-	governanceTypes,
 } from "../lib/records"
 import { createPortalResource, createUploadResource, fetchResource } from "../lib/resources"
+import { organizationSections } from "../lib/workspace"
 
 const props = defineProps({
 	area: { type: String, required: true },
+	section: { type: String, default: "details" },
 })
+const emit = defineEmits(["update:section"])
 
 const recordsResource = createPortalResource("audit_portal.api.client_records.get_client_records")
 const customerSaveResource = createPortalResource("audit_portal.api.client_records.save_customer_details", { method: "POST" })
@@ -29,15 +32,22 @@ const linkedRecordResource = createPortalResource("audit_portal.api.client_recor
 const clientRecordResource = createPortalResource("audit_portal.api.client_records.save_client_record", { method: "POST" })
 const appointmentCancelResource = createPortalResource("audit_portal.api.client_records.cancel_client_appointment", { method: "POST" })
 const uploadResource = createUploadResource("audit_portal.api.client_records.upload_compliance_file")
+const credentialListResource = createPortalResource("audit_portal.api.credentials.get_client_credentials")
+const credentialSubmitResource = createPortalResource("audit_portal.api.credentials.submit_client_credential", { method: "POST" })
 
 const workspace = computed(() => recordsResource.data)
-const loading = computed(() => recordsResource.loading || (!recordsResource.fetched && !recordsResource.error))
+const loading = computed(() =>
+	recordsResource.loading ||
+	(props.area === "credentials" && credentialListResource.loading) ||
+	(!recordsResource.fetched && !recordsResource.error),
+)
 const saving = computed(() =>
 	customerSaveResource.loading ||
 	appointmentBookResource.loading ||
 	linkedRecordResource.loading ||
 	clientRecordResource.loading ||
-	uploadResource.loading,
+	uploadResource.loading ||
+	credentialSubmitResource.loading,
 )
 const pageError = ref("")
 const notice = ref("")
@@ -45,8 +55,10 @@ const editorOpen = ref(false)
 const editorError = ref("")
 const editorKind = ref("")
 const selectedRecord = ref(null)
-const activeGovernance = ref("details")
+const activeSectionId = computed(() => organizationSections.some((item) => item.id === props.section) ? props.section : "details")
+const activeGovernance = computed(() => organizationSections.find((item) => item.id === activeSectionId.value)?.doctype || "Organization Details")
 const uploadingDocument = ref(null)
+const credentialRequests = ref([])
 
 const recordDefinitions = computed(() => buildRecordDefinitions(workspace.value))
 const profileFields = computed(() => customerFields(workspace.value))
@@ -54,25 +66,27 @@ const currentDefinition = computed(() => recordDefinitions.value[editorKind.valu
 const editorFields = computed(() => {
 	if (editorKind.value === "Organization Details") return profileFields.value
 	if (editorKind.value === "Appointment") return appointmentFields
+	if (editorKind.value === "Credential") return credentialFields
 	return currentDefinition.value?.fields || []
 })
 const editorTitle = computed(() => {
 	if (editorKind.value === "Organization Details") return "Update your organization details"
 	if (editorKind.value === "Appointment") return "Book an appointment"
+	if (editorKind.value === "Credential") return selectedRecord.value ? "Submit a replacement credential" : "Submit a credential for review"
 	return `${selectedRecord.value ? "Update" : "Add"} ${currentDefinition.value?.title?.replace(/s$/, "").toLowerCase() || "record"}`
 })
-const editorDescription = computed(() =>
-	editorKind.value === "Appointment"
-		? "Choose a future date and time. Your audit team will confirm the meeting."
-		: "Enter the information your audit team needs. You can return and update it later.",
-)
-const editorSaveLabel = computed(() =>
-	editorKind.value === "Appointment"
-		? "Book appointment"
-		: selectedRecord.value || editorKind.value === "Organization Details"
-			? "Save changes"
-			: "Add record",
-)
+const editorDescription = computed(() => {
+	if (editorKind.value === "Appointment") return "Choose a future date and time. Your audit team will confirm the meeting."
+	if (editorKind.value === "Credential") return "Your audit team reviews this request in Desk. The password is stored securely and is never shown here after submission."
+	return "Enter the information your audit team needs. You can return and update it later."
+})
+const editorSaveLabel = computed(() => {
+	if (editorKind.value === "Credential") return "Submit for review"
+	if (editorKind.value === "Appointment") return "Book appointment"
+	return selectedRecord.value || editorKind.value === "Organization Details"
+		? "Save changes"
+		: "Add record"
+})
 
 function recordDate(value) {
 	return formatDate(value, "Not provided")
@@ -82,6 +96,9 @@ async function load() {
 	pageError.value = ""
 	try {
 		await fetchResource(recordsResource, null, "We couldn’t load your organization records.")
+		if (props.area === "credentials") {
+			credentialRequests.value = await fetchResource(credentialListResource, null, "We couldn’t load your credential requests.")
+		}
 	} catch (error) {
 		pageError.value = error.message
 	}
@@ -97,6 +114,13 @@ function openEditor(kind, record = null) {
 async function saveRecord({ name, values }) {
 	editorError.value = ""
 	try {
+		if (editorKind.value === "Credential") {
+			const result = await fetchResource(credentialSubmitResource, values, "We couldn’t submit these credentials.")
+			notice.value = result.message
+			editorOpen.value = false
+			await load()
+			return
+		}
 		if (editorKind.value === "Organization Details") {
 			await fetchResource(customerSaveResource, { values }, "We couldn’t save these changes.")
 		} else if (editorKind.value === "Appointment") {
@@ -185,14 +209,27 @@ onMounted(load)
 			<NoticeBar v-if="pageError" type="error" :message="pageError" @dismiss="pageError = ''" />
 			<NoticeBar v-if="notice" type="success" :message="notice" @dismiss="notice = ''" />
 
-			<div v-if="props.area === 'organization'" class="space-y-5">
-				<nav class="no-scrollbar mb-5 flex gap-0.5 overflow-x-auto border-b border-line" aria-label="Organization details">
-					<button class="flex-none whitespace-nowrap border-0 border-b-2 border-transparent bg-transparent px-3 pb-[0.7rem] pt-3 text-[0.78rem] font-semibold text-muted transition hover:text-ink aria-[current=page]:border-brass aria-[current=page]:text-ink" :aria-current="activeGovernance === 'details' ? 'page' : undefined" @click="activeGovernance = 'details'">Organization details</button>
-					<button class="flex-none whitespace-nowrap border-0 border-b-2 border-transparent bg-transparent px-3 pb-[0.7rem] pt-3 text-[0.78rem] font-semibold text-muted transition hover:text-ink aria-[current=page]:border-brass aria-[current=page]:text-ink" :aria-current="activeGovernance === 'contacts' ? 'page' : undefined" @click="activeGovernance = 'contacts'">Contacts & addresses</button>
-					<button v-for="type in governanceTypes" :key="type" class="flex-none whitespace-nowrap border-0 border-b-2 border-transparent bg-transparent px-3 pb-[0.7rem] pt-3 text-[0.78rem] font-semibold text-muted transition hover:text-ink aria-[current=page]:border-brass aria-[current=page]:text-ink" :aria-current="activeGovernance === type ? 'page' : undefined" @click="activeGovernance = type">{{ recordDefinitions[type].title }}</button>
-				</nav>
+			<div v-if="props.area === 'organization'" class="grid gap-5 lg:grid-cols-[13rem_minmax(0,1fr)] lg:gap-6">
+				<aside class="min-w-0">
+					<p class="eyebrow px-3 pb-2">Dossier</p>
+					<nav class="no-scrollbar flex gap-1.5 overflow-x-auto border-b border-line pb-2 lg:sticky lg:top-[5.5rem] lg:flex-col lg:border-b-0 lg:pb-0" aria-label="Organization sections">
+						<button
+							v-for="section in organizationSections"
+							:key="section.id"
+							type="button"
+							class="flex flex-none items-center gap-2 whitespace-nowrap rounded-[0.55rem] border px-3 py-2 text-left text-[0.78rem] font-medium transition lg:w-full"
+							:class="activeSectionId === section.id ? 'border-brass/40 bg-bottle-soft/80 text-bottle-deep' : 'border-transparent text-muted hover:border-line hover:bg-canvas-soft hover:text-ink'"
+							:aria-current="activeSectionId === section.id ? 'page' : undefined"
+							@click="emit('update:section', section.id)"
+						>
+							<span class="h-3.5 w-[2px] shrink-0 rounded-full" :class="activeSectionId === section.id ? 'bg-brass' : 'bg-transparent'" aria-hidden="true"></span>
+							<span>{{ section.label }}</span>
+						</button>
+					</nav>
+				</aside>
 
-				<div v-if="activeGovernance === 'contacts'" class="space-y-5">
+				<div class="min-w-0 space-y-5">
+				<div v-if="activeSectionId === 'contacts'" class="space-y-5">
 					<RecordCollection
 						eyebrow="Directory"
 						title="Organization contacts"
@@ -239,7 +276,7 @@ onMounted(load)
 					</RecordCollection>
 				</div>
 
-				<section v-if="activeGovernance === 'details'" class="sheet">
+				<section v-if="activeSectionId === 'details'" class="sheet">
 					<SheetHeader
 						eyebrow="Organization profile"
 						title="Organization details"
@@ -266,7 +303,7 @@ onMounted(load)
 				</section>
 
 				<RecordCollection
-					v-else-if="activeGovernance !== 'contacts'"
+					v-else-if="activeSectionId !== 'details' && activeSectionId !== 'contacts'"
 					eyebrow="Governance"
 					:title="recordDefinitions[activeGovernance].title"
 					description="These details are visible only to your organization and its audit team."
@@ -289,6 +326,7 @@ onMounted(load)
 						<Button class="audit-btn audit-btn--secondary audit-btn--sm" @click="openEditor(activeGovernance, item)">Edit</Button>
 					</template>
 				</RecordCollection>
+				</div>
 			</div>
 
 			<RecordCollection
@@ -368,6 +406,39 @@ onMounted(load)
 						{{ uploadingDocument === item.name ? "Uploading…" : item.attachment ? "Replace upload" : "Upload document" }}
 						<input class="sr-only" type="file" accept=".pdf,.png,.jpg,.jpeg" :disabled="uploadingDocument === item.name" @change="uploadDocument(item, $event)">
 					</label>
+				</template>
+			</RecordCollection>
+
+			<RecordCollection
+				v-else-if="props.area === 'credentials'"
+				eyebrow="Access"
+				title="External portal credentials"
+				description="Share external portal logins for secure review. Do not include one-time codes or security answers."
+				:items="credentialRequests"
+				empty-title="No credentials submitted"
+				empty-description="Submit a portal login when your audit team asks for access to an external system."
+				add-label="Submit a credential"
+				:loading="loading"
+				@add="openEditor('Credential')"
+			>
+				<template #summary="{ item }">
+					<div class="flex flex-wrap items-center gap-2">
+						<h3 class="record-title">{{ item.portal_name }}</h3>
+						<StatusPill :status="item.status" />
+					</div>
+					<p class="record-meta">{{ item.credential_type }} · {{ item.username }}</p>
+					<p class="record-note">Submitted {{ recordDate(item.submitted_on) }}<span v-if="item.reviewed_on"> · reviewed {{ recordDate(item.reviewed_on) }}</span></p>
+					<p v-if="item.reviewer_note" class="record-danger">{{ item.reviewer_note }}</p>
+				</template>
+				<template #actions="{ item }">
+					<Button
+						v-if="item.status !== 'Pending Review'"
+						class="audit-btn audit-btn--secondary audit-btn--sm"
+						@click="openEditor('Credential', item)"
+					>
+						Submit replacement
+					</Button>
+					<span v-else class="record-note">Awaiting review</span>
 				</template>
 			</RecordCollection>
 

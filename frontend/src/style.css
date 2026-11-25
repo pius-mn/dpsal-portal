@@ -55,7 +55,7 @@
 
 	body {
 		@apply m-0 min-h-screen min-w-[320px] bg-canvas font-sans text-ink antialiased;
-		background-image: radial-gradient(1100px 520px at 50% -8%, #e5ebe7 0%, rgb(229 235 231 / 0%) 62%);
+		background-image: radial-gradient(1100px 520px at 50% -8%, theme('colors.canvas.soft') 0%, transparent 62%);
 		background-attachment: fixed;
 	}
 
@@ -161,7 +161,7 @@
 		position: absolute;
 		inset: 0 0 auto 0;
 		height: 2px;
-		background: linear-gradient(90deg, #a2833f 0 3.25rem, transparent 3.25rem);
+		background: linear-gradient(90deg, theme('colors.brass.DEFAULT') 0 3.25rem, transparent 3.25rem);
 		opacity: 0.9;
 	}
 
@@ -169,8 +169,27 @@
 		@apply grid size-[2.45rem] shrink-0 place-items-center rounded-[0.6rem] border border-bottle-deep/25 bg-bottle font-display text-[1.2rem] leading-none text-[#f6faf7] transition group-hover:-translate-y-px group-hover:bg-bottle-deep max-sm:size-[2.2rem] max-sm:text-[1.05rem];
 		box-shadow:
 			inset 0 0 0 1px rgb(255 255 255 / 26%),
-			inset 0 0 0 4px #14483c,
+			inset 0 0 0 4px theme('colors.bottle.DEFAULT'),
 			inset 0 0 0 5px rgb(255 255 255 / 16%);
+	}
+
+	.portal-nav-control {
+		@apply relative inline-flex cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-[0.5rem] border-0 bg-transparent px-2.5 py-2 text-[0.8125rem] font-semibold text-muted no-underline transition hover:bg-canvas-soft hover:text-ink;
+	}
+
+	.portal-nav-control::after {
+		content: "";
+		@apply absolute inset-x-2 bottom-0 h-[2px] rounded-full bg-bottle opacity-0 transition-opacity;
+	}
+
+	.portal-nav-control[aria-current="page"],
+	.portal-nav-control[data-active="true"] {
+		@apply text-ink;
+	}
+
+	.portal-nav-control[aria-current="page"]::after,
+	.portal-nav-control[data-active="true"]::after {
+		@apply opacity-100;
 	}
 
 	.dossier-spine {
@@ -197,7 +216,7 @@
 
 	.dossier-cover {
 		@apply relative mt-7 overflow-hidden rounded-[1.25rem] border border-white/10 bg-bottle-deep p-[clamp(1.5rem,4vw,3rem)] text-[#eff6f2];
-		box-shadow: 0 32px 64px -44px rgb(11 51 43 / 90%);
+		box-shadow: 0 32px 64px -44px rgb(16 43 35 / 90%);
 	}
 
 	.dossier-cover::before {
@@ -227,7 +246,7 @@
 	}
 
 	.cover-ledger {
-		@apply mt-[2.2rem] grid grid-cols-2 gap-0 border-t border-white/15 pt-[1.35rem] max-[520px]:grid-cols-1;
+		@apply mt-[2.2rem] grid grid-cols-3 gap-0 border-t border-white/15 pt-[1.35rem] max-[720px]:grid-cols-1;
 	}
 
 	.cover-ledger > div {
@@ -235,7 +254,7 @@
 	}
 
 	.cover-ledger > div + div {
-		@apply border-l border-white/15 pl-6 max-[520px]:mt-4 max-[520px]:border-l-0 max-[520px]:border-t max-[520px]:pl-0 max-[520px]:pt-4;
+		@apply border-l border-white/15 pl-6 max-[720px]:mt-4 max-[720px]:border-l-0 max-[720px]:border-t max-[720px]:pl-0 max-[720px]:pt-4;
 	}
 
 	.cover-ledger dt {
@@ -377,14 +396,14 @@
 		top: 1rem;
 		right: 1rem;
 		padding: 0.25rem 0.5rem;
-		border: 2px double var(--bottle, #14483c);
+		border: 2px double theme('colors.bottle.DEFAULT');
 		border-radius: 0.2rem;
 		font-family: "IBM Plex Mono", monospace;
 		font-size: 0.6rem;
 		font-weight: 500;
 		letter-spacing: 0.12em;
 		text-transform: uppercase;
-		color: #14483c;
+		color: theme('colors.bottle.DEFAULT');
 		opacity: 0.72;
 		transform: rotate(-4deg);
 	}
@@ -403,7 +422,7 @@
 	}
 
 	.dialog-content {
-		border: 1px solid #dbe2de;
+		border: 1px solid theme('colors.line.DEFAULT');
 		border-radius: 1rem !important;
 		box-shadow: 0 40px 80px -40px rgb(8 25 20 / 60%) !important;
 	}

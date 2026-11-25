@@ -10,7 +10,7 @@ const LoadingApp = {
 				role: "status",
 				"aria-live": "polite",
 			},
-			"Loading Audit Portal…",
+			"Loading DP SAL Portal…",
 		),
 }
 
@@ -27,10 +27,10 @@ if (root) {
 		loader: pages[route] || pages["/client-portal"],
 		loadingComponent: LoadingApp,
 	})
-	document.querySelector('meta[name="theme-color"]')?.setAttribute("content", "#14483c")
+	document.querySelector('meta[name="theme-color"]')?.setAttribute("content", "#16382E")
 	document.title = {
-		"/signup": "Request access · Audit Portal",
-		"/client-portal": "Client dossier · Audit Portal",
-	}[route] || "Client dossier · Audit Portal"
+		"/signup": "Request access · DP SAL Portal",
+		"/client-portal": "Client dossier · DP SAL Portal",
+	}[route] || "Client dossier · DP SAL Portal"
 	createApp(page).mount(root)
 }

@@ -11,20 +11,25 @@ import StatePanel from "../components/StatePanel.vue"
 import StatusPill from "../components/StatusPill.vue"
 import { formatCurrency, formatDate } from "../lib/format"
 import { createPortalResource, fetchResource } from "../lib/resources"
-import { workspaceIndex, workspaceTabs } from "../lib/workspace"
+import { organizationSections, workspaceIndex, workspaceTabs } from "../lib/workspace"
 
 const ClientRecordsWorkspace = defineAsyncComponent(() => import("./ClientRecordsWorkspace.vue"))
 
 const user = document.querySelector("#app")?.dataset.user || "Guest"
 const portalResource = createPortalResource("audit_portal.api.portal.get_portal_data")
+const recordsResource = createPortalResource("audit_portal.api.client_records.get_client_records")
+const credentialsResource = createPortalResource("audit_portal.api.credentials.get_client_credentials")
 const quotationDetailsResource = createPortalResource("audit_portal.api.portal.get_quotation_details")
 const quotationActionResource = createPortalResource("audit_portal.api.portal.action_quotation", { method: "POST" })
 const invoiceDetailsResource = createPortalResource("audit_portal.api.portal.get_invoice_details")
 
 const portal = computed(() => portalResource.data)
+const recordsData = ref(null)
+const credentialRows = ref(null)
 const loading = computed(() => portalResource.loading || (!portalResource.fetched && !portalResource.error))
 const refreshing = computed(() => portalResource.loading && portalResource.fetched)
 const activeTab = ref("overview")
+const activeSubTab = ref("details")
 const loadError = ref("")
 const alert = ref(null)
 const activeQuotation = computed(() => (quotationActionResource.loading && selectedQuotation.value ? selectedQuotation.value.name : ""))
@@ -43,6 +48,7 @@ const invoiceDialogOpen = ref(false)
 const tabs = computed(() => workspaceTabs(portal.value))
 const activeSection = computed(() => tabs.value.find((tab) => tab.id === activeTab.value) || tabs.value[0])
 const isDossierTab = computed(() => activeSection.value.group === "Dossier")
+const entityName = computed(() => portal.value?.customer?.customer_name || portal.value?.customer?.name || "DP SAL Portal")
 
 const quotationColumns = [
 	{ key: "name", label: "Proposal", cellClass: "cell-ref" },
@@ -79,16 +85,63 @@ const unpaidTotalLabel = computed(() => {
 	return formatCurrency(total, [...currencies][0])
 })
 
+function recordCount(doctype) {
+	return recordsData.value?.records?.[doctype]?.length || 0
+}
+
+const dossierChecks = computed(() => {
+	if (!recordsData.value) return null
+	const details = recordsData.value.customer_details || {}
+	return {
+		details: Boolean(details.customer_type && (details.registration_no || details.structure_details)),
+		contacts: Boolean((recordsData.value.contacts?.length || 0) && (recordsData.value.addresses?.length || 0)),
+		shareholders: recordCount("Client Shareholder") > 0,
+		beneficial_owners: recordCount("Client Beneficial Owner") > 0,
+		board_members: recordCount("Client Board Member") > 0,
+	}
+})
+
+const dossierCompletion = computed(() => {
+	const checks = dossierChecks.value
+	if (!checks) return { complete: 0, total: 5, available: false }
+	return {
+		complete: Object.values(checks).filter(Boolean).length,
+		total: 5,
+		available: true,
+	}
+})
+
+const dossierCompletionLabel = computed(() =>
+	dossierCompletion.value.available
+		? `${dossierCompletion.value.complete}/${dossierCompletion.value.total} complete`
+		: "—",
+)
+
+const pendingDocuments = computed(() =>
+	(recordsData.value?.records?.["Compliance Certificate"] || []).filter(
+		(row) => row.status === "Pending Review",
+	).length,
+)
+
+const tileStats = computed(() => ({
+	organization: dossierCompletionLabel.value,
+	tax: recordsData.value ? `${recordCount("Client Tax Registration")} on file` : "—",
+	documents: recordsData.value ? `${pendingDocuments.value} pending` : "—",
+	audit_data: recordsData.value
+		? `${recordCount("Client Bank Account") + recordCount("Client Budget Line")} records`
+		: "—",
+	credentials: credentialRows.value ? `${credentialRows.value.length} submitted` : "—",
+	appointments: recordsData.value ? `${recordsData.value.appointments?.length || 0} booked` : "—",
+	quotations: `${openQuotations.value.length} open`,
+	invoices: `${unpaidInvoices.value.length} unpaid`,
+}))
+
+function tileStatus(entry) {
+	return tileStats.value[entry.tab] || "—"
+}
+
 const nextAction = computed(() => {
 	if (!portal.value) return null
-	if (openQuotations.value.length) {
-		return {
-			title: "A proposal is ready for your decision",
-			description: "Review the scope and total, then accept or decline the proposal.",
-			action: "Review proposal",
-			tab: "quotations",
-		}
-	}
 	if (unpaidInvoices.value.length) {
 		return {
 			title: "You have an unpaid balance",
@@ -97,26 +150,52 @@ const nextAction = computed(() => {
 			tab: "invoices",
 		}
 	}
+	if (openQuotations.value.length) {
+		return {
+			title: "A proposal is ready for your decision",
+			description: "Review the scope and total, then accept or decline the proposal.",
+			action: "Review proposal",
+			tab: "quotations",
+		}
+	}
+	if (dossierCompletion.value.available && dossierCompletion.value.complete < dossierCompletion.value.total) {
+		return {
+			title: "A few dossier sections need attention",
+			description: `${dossierCompletionLabel.value} across your organization record. Add what is missing when you have the details.`,
+			action: "Complete organization",
+			tab: "organization",
+		}
+	}
 	return {
-		title: "Your workspace is ready",
-		description: "Keep your organization details current, share compliance documents, and book time with your audit team here.",
-		action: "Review organization",
-		tab: "organization",
+		title: "All caught up",
+		description: "Your invoices, proposals, and organization sections are up to date.",
+		action: "",
+		tab: "",
 	}
 })
 
 const coverLedger = computed(() => [
 	{ label: "Proposals to review", value: openQuotations.value.length, note: "Waiting for your decision" },
 	{ label: "Unpaid balance", value: unpaidTotalLabel.value, note: "Across your invoices" },
+	{ label: "Dossier completion", value: dossierCompletion.value.available ? `${dossierCompletion.value.complete}/${dossierCompletion.value.total}` : "—", note: "Sections complete" },
 ])
 
 const dossierDetails = computed(() => [
-	{ label: "Organization", value: portal.value?.customer?.customer_name || portal.value?.customer?.name },
-	{ label: "Reference", value: portal.value?.customer?.name },
+	{ label: "Organization", value: portal.value?.customer?.customer_name || portal.value?.customer?.name || "—" },
+	{ label: "Registration / tax PIN", value: recordsData.value?.customer_details?.registration_no || "—" },
 	{ label: "Signed in as", value: user },
 ])
 
 const invoiceUrl = computed(() => invoiceDetails.value?.download_url || "")
+
+async function loadMetrics() {
+	const [recordsResult, credentialsResult] = await Promise.allSettled([
+		fetchResource(recordsResource, null, "We couldn’t load your workspace totals."),
+		fetchResource(credentialsResource, null, "We couldn’t load your credential totals."),
+	])
+	recordsData.value = recordsResult.status === "fulfilled" ? recordsResult.value : null
+	credentialRows.value = credentialsResult.status === "fulfilled" ? credentialsResult.value : null
+}
 
 async function loadPortal() {
 	loadError.value = ""
@@ -126,6 +205,7 @@ async function loadPortal() {
 			null,
 			"We couldn’t open your workspace. Check that you’re signed in with the client account approved by your audit team, then try again.",
 		)
+		await loadMetrics()
 	} catch (error) {
 		loadError.value = error.message
 	}
@@ -201,30 +281,50 @@ function scrollToTop() {
 	window.scrollTo({ top: 0, behavior: reduceMotion ? "auto" : "smooth" })
 }
 
-function openTab(tab, { replace = false, skipScroll = false } = {}) {
+function isValidSection(section) {
+	return organizationSections.some((item) => item.id === section)
+}
+
+function openTab(tab, { replace = false, skipScroll = false, section = "" } = {}) {
 	const id = tabs.value.some((item) => item.id === tab) ? tab : "overview"
+	const nextSection = id === "organization" && isValidSection(section) ? section : "details"
 	const url = new URL(window.location.href)
 	if (id === "overview") url.searchParams.delete("tab")
 	else url.searchParams.set("tab", id)
-	if (activeTab.value !== id || replace) {
-		window.history[replace ? "replaceState" : "pushState"]({ tab: id }, "", url)
+	if (nextSection === "details") url.searchParams.delete("section")
+	else url.searchParams.set("section", nextSection)
+
+	if (activeTab.value !== id || activeSubTab.value !== nextSection || replace) {
+		window.history[replace ? "replaceState" : "pushState"]({ tab: id, section: nextSection }, "", url)
 		activeTab.value = id
+		activeSubTab.value = nextSection
 	}
 	if (!skipScroll) scrollToTop()
 }
 
 function syncTabFromUrl({ skipScroll = true } = {}) {
-	const requested = new URLSearchParams(window.location.search).get("tab")
+	const params = new URLSearchParams(window.location.search)
+	const requested = params.get("tab")
 	if (!requested || !tabs.value.some((item) => item.id === requested)) {
-		if (requested) {
+		if (requested || params.has("section")) {
 			const url = new URL(window.location.href)
 			url.searchParams.delete("tab")
-			window.history.replaceState({ tab: "overview" }, "", url)
+			url.searchParams.delete("section")
+			window.history.replaceState({ tab: "overview", section: "details" }, "", url)
 		}
 		activeTab.value = "overview"
+		activeSubTab.value = "details"
 		return
 	}
-	openTab(requested, { replace: true, skipScroll })
+	openTab(requested, { replace: true, skipScroll, section: params.get("section") || "" })
+}
+
+function handleNavigate(id, section) {
+	openTab(id, { section })
+}
+
+function openOrganizationSection(section) {
+	openTab("organization", { section })
 }
 
 function onPopState() {
@@ -235,7 +335,7 @@ watch(
 	activeTab,
 	(tab) => {
 		const section = tabs.value.find((item) => item.id === tab)
-		document.title = `${section?.label || "Client dossier"} · Audit Portal`
+		document.title = `${section?.label || "Client dossier"} · DP SAL Portal`
 	},
 	{ immediate: true },
 )
@@ -256,7 +356,9 @@ onBeforeUnmount(() => window.removeEventListener("popstate", onPopState))
 				context="portal"
 				:nav-items="tabs"
 				:active-nav="activeTab"
-				@navigate="openTab"
+				:active-section="activeSubTab"
+				:entity-name="entityName"
+				@navigate="handleNavigate"
 			/>
 
 			<main id="portal-content" tabindex="-1" class="outline-none">
@@ -279,6 +381,17 @@ onBeforeUnmount(() => window.removeEventListener("popstate", onPopState))
 				</div>
 
 				<template v-else-if="portal">
+					<div v-if="activeTab !== 'overview'" class="shell-max mt-5">
+						<div class="flex flex-wrap items-center justify-between gap-3 border-y border-line bg-paper/70 px-[1.1rem] py-2.5">
+							<p class="eyebrow flex min-w-0 items-center">
+								<span>Client</span>
+								<span class="mx-2 text-line-strong" aria-hidden="true">/</span>
+								<span class="truncate text-ink-soft">{{ entityName }}</span>
+							</p>
+							<button class="text-action" @click="openTab('overview')"><span class="mr-1" aria-hidden="true">←</span>Back to overview</button>
+						</div>
+					</div>
+
 					<div class="shell-max">
 						<section v-if="activeTab === 'overview'" class="dossier-cover" aria-labelledby="workspace-title">
 							<div class="grid grid-cols-1 items-start gap-8 min-[960px]:grid-cols-[minmax(0,1.35fr)_minmax(18rem,0.65fr)]">
@@ -287,11 +400,11 @@ onBeforeUnmount(() => window.removeEventListener("popstate", onPopState))
 									<h1 id="workspace-title" class="mt-3.5 max-w-[20ch] text-balance font-display text-[clamp(2.5rem,6vw,4.4rem)] font-normal leading-[0.96] tracking-[-0.02em] text-[#f8fbf9]">{{ portal.customer.customer_name || portal.customer.name }}</h1>
 									<p class="mt-[1.1rem] max-w-[44ch] text-base leading-[1.65] text-[#e9f2ed]/70">See what needs your attention, review proposals, and find your invoices. If you’re unsure what to do, start with the next step.</p>
 								</div>
-								<aside class="rounded-[0.9rem] border border-[#c5a869]/40 bg-gradient-to-b from-white/10 to-white/5 px-[1.3rem] pb-[1.35rem] pt-[1.25rem] max-sm:p-[1.1rem]" aria-labelledby="next-step-heading">
+								<aside class="rounded-[0.9rem] border border-brass/40 bg-bottle-deep/95 px-[1.3rem] pb-[1.35rem] pt-[1.25rem] backdrop-blur-sm max-sm:p-[1.1rem]" aria-labelledby="next-step-heading">
 									<p class="eyebrow eyebrow--light">Your next step</p>
 									<h2 id="next-step-heading" class="mt-2 font-display text-2xl font-normal leading-[1.12] text-[#f8fbf9]">{{ nextAction.title }}</h2>
-									<p class="mb-[1.15rem] mt-2 text-[0.8125rem] leading-[1.6] text-[#e9f2ed]/70">{{ nextAction.description }}</p>
-									<Button class="audit-btn audit-btn--brass" @click="openTab(nextAction.tab)">
+									<p class="mt-2 text-[0.8125rem] leading-[1.6] text-[#e9f2ed]/70">{{ nextAction.description }}</p>
+									<Button v-if="nextAction.tab" class="audit-btn audit-btn--brass mt-[1.15rem]" @click="openTab(nextAction.tab)">
 										{{ nextAction.action }}
 									</Button>
 								</aside>
@@ -305,18 +418,10 @@ onBeforeUnmount(() => window.removeEventListener("popstate", onPopState))
 							</KeyValueList>
 						</section>
 
-						<header v-else class="mt-7 border-b border-line pb-6" aria-labelledby="section-heading">
-							<div class="flex flex-col gap-5 min-[900px]:flex-row min-[900px]:items-end min-[900px]:justify-between">
-								<div>
-									<p class="eyebrow eyebrow--brass">Dossier section</p>
-									<h1 id="section-heading" class="mt-2 font-display text-[clamp(2rem,4vw,3.1rem)] font-normal leading-[1.02] tracking-[-0.02em] text-ink">{{ activeSection.label }}</h1>
-									<p class="mt-3 max-w-[52ch] text-sm leading-7 text-muted">{{ activeSection.description }}</p>
-								</div>
-								<div class="flex flex-wrap items-center gap-x-4 gap-y-2">
-									<span class="figure text-[0.5625rem] uppercase tracking-[0.14em] text-muted">{{ portal.customer.name }}</span>
-									<button class="text-action" @click="openTab('overview')">Back to overview</button>
-								</div>
-							</div>
+						<header v-else class="mt-6 border-b border-line pb-6" aria-labelledby="section-heading">
+							<p class="eyebrow eyebrow--brass">Dossier section</p>
+							<h1 id="section-heading" class="mt-2 font-display text-[clamp(2rem,4vw,3.1rem)] font-normal leading-[1.02] tracking-[-0.02em] text-ink">{{ activeSection.label }}</h1>
+							<p class="mt-3 max-w-[52ch] text-sm leading-7 text-muted">{{ activeSection.description }}</p>
 						</header>
 					</div>
 
@@ -332,11 +437,19 @@ onBeforeUnmount(() => window.removeEventListener("popstate", onPopState))
 									description="Keep your organization records current, share compliance evidence, and handle day-to-day audit work from one workspace."
 								/>
 								<div class="grid grid-cols-1 min-[720px]:grid-cols-2">
-									<button v-for="entry in workspaceIndex" :key="entry.title" class="group grid cursor-pointer grid-cols-[1fr_auto] gap-x-4 gap-y-1 border-b border-line bg-transparent px-[1.4rem] py-[1.1rem] text-left transition odd:border-r hover:bg-canvas-soft max-[720px]:border-r-0 last:odd:border-r-0" @click="openTab(entry.tab)">
-										<span class="col-span-full font-mono text-[0.5625rem] uppercase tracking-[0.16em] text-brass-strong">{{ entry.kicker }}</span>
+									<button v-for="entry in workspaceIndex" :key="entry.title" class="group grid cursor-pointer grid-cols-[1fr_auto] gap-x-4 gap-y-1 border-b border-line bg-transparent px-[1.4rem] py-[1.1rem] text-left transition odd:border-r hover:border-brass/60 hover:bg-canvas-soft max-[720px]:border-r-0 last:odd:border-r-0" @click="openTab(entry.tab)">
+										<span class="col-span-full flex items-center gap-2">
+											<svg viewBox="0 0 24 24" class="size-3.5 text-muted" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+												<path v-for="path in entry.icon" :d="path" />
+											</svg>
+											<span class="font-mono text-[0.5625rem] font-medium uppercase tracking-[0.16em] text-brass-strong">{{ entry.kicker }}</span>
+										</span>
 										<span class="mt-[0.3rem] text-[0.9375rem] font-semibold text-ink">{{ entry.title }}</span>
 										<span class="mt-[0.15rem] text-[0.78rem] leading-normal text-muted">{{ entry.description }}</span>
-										<span class="col-start-2 row-[2/span_2] self-center text-base text-line-strong transition group-hover:translate-x-1 group-hover:text-bottle" aria-hidden="true">→</span>
+										<span class="col-start-2 row-[2/span_2] flex flex-col items-end justify-center gap-3">
+											<span class="status-stamp border-line bg-paper text-muted-strong">{{ tileStatus(entry) }}</span>
+											<span class="text-base text-line-strong transition group-hover:translate-x-1 group-hover:text-bottle" aria-hidden="true">→</span>
+										</span>
 									</button>
 								</div>
 							</div>
@@ -348,7 +461,6 @@ onBeforeUnmount(() => window.removeEventListener("popstate", onPopState))
 									<p class="sheet-sub">Update organization details, record financial information, manage tax registrations, and share requested documents securely.</p>
 									<KeyValueList :items="dossierDetails" />
 									<Button class="audit-btn audit-btn--secondary mt-5 w-full justify-center" @click="openTab('organization')">Open organization records</Button>
-									<p class="mt-5 text-[0.6875rem] leading-relaxed text-muted">Your records are private and visible only to your organization and audit team.</p>
 								</div>
 							</aside>
 						</section>
@@ -458,7 +570,7 @@ onBeforeUnmount(() => window.removeEventListener("popstate", onPopState))
 						</section>
 
 						<Suspense v-if="isDossierTab">
-							<ClientRecordsWorkspace :area="activeTab" />
+							<ClientRecordsWorkspace :area="activeTab" :section="activeSubTab" @update:section="openOrganizationSection" />
 							<template #fallback>
 								<StatePanel label="Opening records" title="Opening records…" message="Loading your organization’s private records." />
 							</template>

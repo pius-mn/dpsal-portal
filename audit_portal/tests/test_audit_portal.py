@@ -8,6 +8,12 @@ from frappe.contacts.doctype.address.address import get_default_address
 from frappe.tests.utils import FrappeTestCase
 from frappe.utils.file_manager import save_file
 from audit_portal.api.signup import submit_signup_request
+from audit_portal.api.credentials import (
+	get_client_credentials,
+	get_customer_credential,
+	reveal_client_credential,
+	submit_client_credential,
+)
 from audit_portal.provisioning import (
 	ensure_audit_client_role,
 	ensure_audit_document_reviewer_role,
@@ -36,7 +42,11 @@ from audit_portal.legal_structure import (
 	structure_defaults,
 	validate_structure_subcategories,
 )
-from audit_portal.customizations import CUSTOMER_TYPE_OPTIONS, setup as setup_customizations
+from audit_portal.customizations import (
+	CUSTOMER_TYPE_OPTIONS,
+	setup as setup_customizations,
+	setup_customer_record_tables,
+)
 
 
 class TestAuditPortal(FrappeTestCase):
@@ -47,6 +57,7 @@ class TestAuditPortal(FrappeTestCase):
 		ensure_default_document_masters()
 		ensure_audit_client_role()
 		ensure_default_document_masters()
+		setup_customer_record_tables()
 
 	def tearDown(self):
 		frappe.set_user("Administrator")
@@ -856,7 +867,217 @@ class TestAuditPortal(FrappeTestCase):
 		self.assertIn("Upload a clearer copy.", review_activity)
 		self.assertIn(certificate.document_title, review_activity)
 
-	def test_06_quotation_uses_customer_tax_id(self):
+		# A reviewed request may be corrected by changing its review outcome.
+		req_doc = frappe.get_doc("Client Verification Request", request.name)
+		req_doc.status = "Verified"
+		req_doc.rejection_reason = "This note should be cleared."
+		req_doc.save()
+
+		self.assertEqual(
+			frappe.db.get_value("Client Verification Request", request.name, "status"),
+			"Verified",
+		)
+		self.assertEqual(
+			frappe.db.get_value("Client Verification Request", request.name, "reviewed_by"),
+			reviewer_email,
+		)
+		self.assertEqual(
+			frappe.db.get_value("Compliance Certificate", certificate.name, "status"),
+			"Verified",
+		)
+		self.assertFalse(
+			frappe.db.get_value("Compliance Certificate", certificate.name, "rejection_reason")
+		)
+
+	def test_06_credential_request_is_desk_visible_and_client_response_is_redacted(self):
+		ensure_audit_document_reviewer_role()
+		suffix = frappe.generate_hash(length=8)
+
+		customer = frappe.get_doc(
+			{
+				"doctype": "Customer",
+				"customer_name": f"Credential Customer {suffix}",
+				"customer_type": "Company",
+				"customer_group": self.get_valid_customer_group(),
+				"territory": self.get_valid_territory(),
+			}
+		).insert(ignore_permissions=True)
+		client_email = f"credential.client.{suffix}@example.com"
+		frappe.get_doc(
+			{
+				"doctype": "User",
+				"email": client_email,
+				"first_name": "Credential Client",
+				"user_type": "Website User",
+				"send_welcome_email": 0,
+				"roles": [{"role": "Audit Client"}],
+			}
+		).insert(ignore_permissions=True)
+		frappe.get_doc(
+			{
+				"doctype": "User Permission",
+				"user": client_email,
+				"allow": "Customer",
+				"for_value": customer.name,
+				"apply_to_all_doctypes": 1,
+			}
+		).insert(ignore_permissions=True)
+
+		frappe.set_user(client_email)
+		result = submit_client_credential(
+			portal_name="Tax Portal",
+			portal_url="https://tax.example.com",
+			username="client-user",
+			password="S3cretClientPassword",
+			credential_type="Tax Portal",
+			access_level="Limited",
+			notes="For annual filing access",
+		)
+		self.assertEqual(result["status"], "Pending Review")
+		self.assertNotIn("S3cretClientPassword", repr(result))
+
+		request_doc = frappe.get_doc("Client Verification Request", result["name"])
+		self.assertEqual(request_doc.customer, customer.name)
+		self.assertEqual(request_doc.request_type, "Credential")
+		self.assertEqual(request_doc.credential_reference, result["credential"])
+		self.assertIsNone(request_doc.attachment)
+		self.assertFalse(frappe.has_permission("Client Verification Request", "read"))
+
+		rows = get_client_credentials()
+		self.assertEqual(len(rows), 1)
+		self.assertEqual(rows[0].portal_name, "Tax Portal")
+		self.assertEqual(rows[0].status, "Pending Review")
+		self.assertNotIn("S3cretClientPassword", repr(rows))
+		self.assertNotIn("password", rows[0])
+
+		with self.assertRaises(frappe.ValidationError):
+			submit_client_credential(
+				portal_name="Tax Portal",
+				username="client-user",
+				password="AnotherPassword",
+			)
+
+		frappe.set_user("Guest")
+		with self.assertRaises(frappe.PermissionError):
+			submit_client_credential(
+				portal_name="Tax Portal",
+				username="client-user",
+				password="GuestPassword",
+			)
+
+		frappe.set_user(client_email)
+		with self.assertRaises(frappe.PermissionError):
+			reveal_client_credential(result["credential"])
+
+		frappe.set_user("Administrator")
+		admin_reveal = reveal_client_credential(result["credential"])
+		self.assertEqual(admin_reveal["password"], "S3cretClientPassword")
+		self.assertTrue(frappe.has_permission("Client Verification Request", "read"))
+		reviewer_email = f"credential.reviewer.{suffix}@example.com"
+		frappe.get_doc(
+			{
+				"doctype": "User",
+				"email": reviewer_email,
+				"first_name": "Credential Reviewer",
+				"user_type": "System User",
+				"send_welcome_email": 0,
+				"roles": [{"role": "Audit Document Reviewer"}],
+			}
+		).insert(ignore_permissions=True)
+
+		frappe.set_user(reviewer_email)
+		self.assertTrue(frappe.has_permission("Client Verification Request", "read"))
+		reviewer_reveal = reveal_client_credential(result["credential"])
+		self.assertEqual(reviewer_reveal["password"], "S3cretClientPassword")
+		request_doc = frappe.get_doc("Client Verification Request", result["name"])
+		request_doc.status = "Rejected"
+		with self.assertRaises(frappe.ValidationError):
+			request_doc.save()
+
+		request_doc.reload()
+		request_doc.status = "Verified"
+		request_doc.save()
+		self.assertEqual(
+			frappe.db.get_value("Client Verification Request", request_doc.name, "status"),
+			"Verified",
+		)
+
+		customer_doc = frappe.get_doc("Customer", customer.name)
+		credential = next(
+			row for row in customer_doc.custom_credentials if row.name == result["credential"]
+		)
+		self.assertEqual(credential.status, "Active")
+		self.assertEqual(credential.reviewed_by, reviewer_email)
+		self.assertNotEqual(
+			frappe.db.get_value("Credentials", credential.name, "password"),
+			"S3cretClientPassword",
+		)
+		comments = frappe.get_all(
+			"Comment",
+			filters={
+				"reference_doctype": "Client Verification Request",
+				"reference_name": request_doc.name,
+			},
+			pluck="content",
+		)
+		self.assertTrue(all("S3cretClientPassword" not in str(content) for content in comments))
+		self.assertTrue(any("Credential password revealed by" in str(content) for content in comments))
+		customer_comments = frappe.get_all(
+			"Comment",
+			filters={"reference_doctype": "Customer", "reference_name": customer.name},
+			pluck="content",
+		)
+		self.assertTrue(
+			all("S3cretClientPassword" not in str(content) for content in customer_comments)
+		)
+		self.assertTrue(
+			any("Credential password revealed by" in str(content) for content in customer_comments)
+		)
+
+		frappe.set_user(client_email)
+		rows = get_client_credentials()
+		self.assertEqual(rows[0].status, "Active")
+		self.assertEqual(rows[0].reviewed_on, credential.reviewed_on)
+		self.assertNotIn("S3cretClientPassword", repr(rows))
+
+		other_customer = frappe.get_doc(
+			{
+				"doctype": "Customer",
+				"customer_name": f"Other Credential Customer {suffix}",
+				"customer_type": "Company",
+				"customer_group": self.get_valid_customer_group(),
+				"territory": self.get_valid_territory(),
+			}
+		).insert(ignore_permissions=True)
+		other_email = f"other.credential.{suffix}@example.com"
+		frappe.set_user("Administrator")
+		frappe.get_doc(
+			{
+				"doctype": "User",
+				"email": other_email,
+				"first_name": "Other Credential Client",
+				"user_type": "Website User",
+				"send_welcome_email": 0,
+				"roles": [{"role": "Audit Client"}],
+			}
+		).insert(ignore_permissions=True)
+		frappe.get_doc(
+			{
+				"doctype": "User Permission",
+				"user": other_email,
+				"allow": "Customer",
+				"for_value": other_customer.name,
+				"apply_to_all_doctypes": 1,
+			}
+		).insert(ignore_permissions=True)
+
+		frappe.set_user(other_email)
+		other_rows = get_client_credentials()
+		self.assertEqual(other_rows, [])
+		with self.assertRaises(frappe.PermissionError):
+			get_customer_credential(other_customer.name, result["credential"])
+
+	def test_07_quotation_uses_customer_tax_id(self):
 		customer = frappe.get_doc(
 			{
 				"doctype": "Customer",

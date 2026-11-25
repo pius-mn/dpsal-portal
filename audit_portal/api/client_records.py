@@ -7,6 +7,7 @@ from frappe.utils.file_manager import save_file
 from frappe.contacts.doctype.address.address import get_default_address
 
 from audit_portal.api.portal import get_current_customer
+from audit_portal.customizations import CREDENTIAL_TABLE_FIELDNAME
 from audit_portal.legal_structure import (
 	STRUCTURE_TAXONOMY,
 	default_document_rows,
@@ -132,6 +133,7 @@ CUSTOMER_TABLE_FIELDS = {
 	"Client Beneficial Owner": "custom_beneficial_owners",
 	"Client Tax Registration": "custom_tax_registrations",
 	"Compliance Certificate": "custom_compliance_certificates",
+	"Credentials": CREDENTIAL_TABLE_FIELDNAME,
 }
 
 LIST_FIELDS = {

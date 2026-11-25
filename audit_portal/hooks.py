@@ -1,7 +1,7 @@
 app_name = "audit_portal"
-app_title = "Audit Portal"
+app_title = "DP SAL Portal"
 app_publisher = "pius"
-app_description = "Dpsal client portal"
+app_description = "DP SAL client portal"
 app_email = "info@ventrionicsystems.co.ke"
 app_license = "mit"
 
@@ -14,6 +14,12 @@ doctype_js = {
 
 # Lifecycle hooks
 before_install = ["audit_portal.provisioning.ensure_audit_document_reviewer_role"]
+after_install = [
+	"audit_portal.customizations.setup",
+	"audit_portal.provisioning.ensure_audit_client_role",
+	"audit_portal.provisioning.ensure_audit_document_reviewer_role",
+	"audit_portal.provisioning.ensure_default_document_masters",
+]
 before_migrate = ["audit_portal.customizations.setup"]
 after_migrate = [
 	"audit_portal.customizations.setup_customer_record_tables",

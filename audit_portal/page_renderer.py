@@ -18,7 +18,7 @@ class AuditPortalRenderer(BaseRenderer):
 		frappe.local.no_cache = 1
 		csrf_token = escape(frappe.sessions.get_csrf_token(), quote=True)
 		user = escape(frappe.session.user or "Guest", quote=True)
-		page_title = _("Request portal access") if request_path == "/signup" else _("Client portal")
+		page_title = _("Request DP SAL Portal access") if request_path == "/signup" else _("DP SAL Portal")
 		js_path = "/assets/audit_portal/frontend/assets/portal.js"
 		css_path = "/assets/audit_portal/frontend/assets/portal.css"
 
@@ -27,7 +27,7 @@ class AuditPortalRenderer(BaseRenderer):
 	<head>
 		<meta charset="UTF-8">
 		<meta name="viewport" content="width=device-width, initial-scale=1.0">
-		<meta name="theme-color" content="#17243a">
+		<meta name="theme-color" content="#16382E">
 		<title>{escape(page_title)}</title>
 		<link rel="stylesheet" href="{css_path}">
 		<script type="module" src="{js_path}"></script>

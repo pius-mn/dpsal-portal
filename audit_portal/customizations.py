@@ -1,6 +1,9 @@
 import frappe
 from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
 
+CREDENTIAL_TAB_FIELDNAME = "custom_credentials_tab"
+CREDENTIAL_TABLE_FIELDNAME = "custom_credentials"
+
 CUSTOMER_CUSTOM_FIELDS = [
 	{
 		"fieldname": "custom_audit_profile_section",
@@ -177,6 +180,19 @@ CUSTOMER_RECORD_TABLE_FIELDS = [
 		"options": "Client Budget Line",
 		"insert_after": "custom_budgets_tab",
 	},
+	{
+		"fieldname": CREDENTIAL_TAB_FIELDNAME,
+		"label": "Credentials",
+		"fieldtype": "Tab Break",
+		"insert_after": "custom_budget_lines",
+	},
+	{
+		"fieldname": CREDENTIAL_TABLE_FIELDNAME,
+		"label": "Credentials",
+		"fieldtype": "Table",
+		"options": "Credentials",
+		"insert_after": CREDENTIAL_TAB_FIELDNAME,
+	},
 ]
 
 QUOTATION_CUSTOM_FIELDS = [
@@ -233,15 +249,20 @@ def _sync_customer_type_options():
 
 
 def setup():
-	create_custom_fields(
-		{
-			"Customer": CUSTOMER_CUSTOM_FIELDS,
-			"Quotation": QUOTATION_CUSTOM_FIELDS,
-		}
-	)
-	_sync_customer_type_options()
-	frappe.clear_cache(doctype="Customer")
-	frappe.clear_cache(doctype="Quotation")
+	custom_fields = {}
+	if frappe.db.exists("DocType", "Customer"):
+		custom_fields["Customer"] = CUSTOMER_CUSTOM_FIELDS
+	if frappe.db.exists("DocType", "Quotation"):
+		custom_fields["Quotation"] = QUOTATION_CUSTOM_FIELDS
+	if not custom_fields:
+		return
+
+	create_custom_fields(custom_fields)
+	if "Customer" in custom_fields:
+		_sync_customer_type_options()
+		frappe.clear_cache(doctype="Customer")
+	if "Quotation" in custom_fields:
+		frappe.clear_cache(doctype="Quotation")
 	if all(
 		frappe.db.exists("DocType", doctype) and frappe.get_meta(doctype).istable
 		for doctype in CUSTOMER_TABLE_DOCTYPES
@@ -255,5 +276,9 @@ CUSTOMER_TABLE_DOCTYPES = tuple(
 
 
 def setup_customer_record_tables():
+	if not frappe.db.exists("DocType", "Customer"):
+		return
+	if not all(frappe.db.exists("DocType", doctype) for doctype in CUSTOMER_TABLE_DOCTYPES):
+		return
 	create_custom_fields({"Customer": CUSTOMER_RECORD_TABLE_FIELDS})
 	frappe.clear_cache(doctype="Customer")

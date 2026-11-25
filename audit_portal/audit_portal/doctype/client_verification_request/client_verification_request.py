@@ -1,7 +1,10 @@
 import frappe
 from frappe import _
-from frappe.utils import now_datetime
 from frappe.model.document import Document
+from frappe.utils import escape_html, now_datetime, nowdate
+
+REVIEW_STATUSES = ("Verified", "Rejected", "Superseded")
+REVIEWABLE_STATUSES = ("Pending Review",) + REVIEW_STATUSES
 
 
 class ClientVerificationRequest(Document):
@@ -10,8 +13,8 @@ class ClientVerificationRequest(Document):
 		Enforce review-transition rules when a reviewer sets status via the
 		perm-level-1 Review section in Desk.  All other field mutations
 		(submission fields, attachment, etc.) remain read-only at perm level 0
-		and are written only by the portal API (client_records.py) using
-		ignore_permissions=True.
+		and are written only by the portal API (client_records.py, credentials.py)
+		using ignore_permissions=True.
 		"""
 		if self.is_new():
 			return
@@ -20,20 +23,18 @@ class ClientVerificationRequest(Document):
 			"Client Verification Request", self.name, "status"
 		)
 
-		# No change — nothing to validate or mirror
 		if prior_status == self.status:
 			return
 
-		# Only transitions away from Pending Review are permitted through Desk
-		if prior_status != "Pending Review":
+		if prior_status not in REVIEWABLE_STATUSES:
 			frappe.throw(
-				_("This document has already been reviewed and cannot be changed again."),
+				_("This verification request has a status that cannot be reviewed."),
 				frappe.ValidationError,
 			)
 
-		if self.status not in ("Verified", "Rejected"):
+		if self.status not in REVIEW_STATUSES:
 			frappe.throw(
-				_("Review status must be set to Verified or Rejected."),
+				_("Review status must be set to Verified, Rejected, or Superseded."),
 				frappe.ValidationError,
 			)
 
@@ -43,32 +44,24 @@ class ClientVerificationRequest(Document):
 				frappe.ValidationError,
 			)
 
-		if not self.attachment:
+		if self.request_type != "Credential" and not self.attachment:
 			frappe.throw(
 				_("This verification request has no uploaded file."),
 				frappe.ValidationError,
 			)
 
-		# Stamp the reviewer automatically — reviewers must not set this themselves
 		self.reviewed_by = frappe.session.user
 		self.reviewed_on = now_datetime()
 
-		if self.status == "Verified":
+		if self.status in ("Verified", "Superseded"):
 			self.rejection_reason = None
 
-		# Mirror outcome to the linked Compliance Certificate child row
-		self._mirror_review_to_certificate()
+		if self.request_type == "Credential":
+			self._mirror_review_to_credential()
+		else:
+			self._mirror_review_to_certificate()
 
-		# Append an activity comment for the audit trail
-		decision_label = "verified" if self.status == "Verified" else "rejected"
-		activity = _(
-			"Verification request {0}: {1}. Document: {2}."
-		).format(self.name, decision_label, self.document_title)
-		if self.status == "Rejected":
-			activity = _("{0} Reviewer note: {1}").format(
-				activity, str(self.rejection_reason or "").strip()
-			)
-		self.add_comment("Comment", activity)
+		self._add_review_comment()
 
 	def _mirror_review_to_certificate(self):
 		"""Update the linked Compliance Certificate child row on the Customer."""
@@ -103,3 +96,63 @@ class ClientVerificationRequest(Document):
 				self.document_title, self.status.lower()
 			),
 		)
+
+	def _mirror_review_to_credential(self):
+		from audit_portal.api.credentials import get_customer_credential
+		from audit_portal.customizations import CREDENTIAL_TABLE_FIELDNAME
+
+		customer_doc, credential = get_customer_credential(
+			self.customer, self.credential_reference
+		)
+		if credential.verification_request != self.name:
+			frappe.throw(
+				_("This verification request is no longer current for the credential row."),
+				frappe.PermissionError,
+			)
+
+		credential.status = "Active" if self.status == "Verified" else self.status
+		credential.reviewed_by = self.reviewed_by
+		credential.reviewed_on = self.reviewed_on
+		credential.reviewer_note = self.rejection_reason
+		if self.status == "Verified":
+			credential.last_verified_on = nowdate()
+			for row in customer_doc.get(CREDENTIAL_TABLE_FIELDNAME) or []:
+				if (
+					row.name != credential.name
+					and row.portal_name == credential.portal_name
+					and row.username == credential.username
+					and row.status == "Active"
+				):
+					row.status = "Revoked"
+					row.revoked_by = frappe.session.user
+					row.revoked_on = now_datetime()
+
+		customer_doc.save(ignore_permissions=True)
+		customer_doc.add_comment(
+			"Comment",
+			_("Credential {0}: {1}.").format(
+				escape_html(credential.portal_name), self.status.lower()
+			),
+		)
+
+	def _add_review_comment(self):
+		decision_label = {
+			"Verified": "verified",
+			"Rejected": "rejected",
+			"Superseded": "superseded",
+		}.get(self.status, self.status.lower())
+		if self.request_type == "Credential":
+			activity = _("Credential verification request {0}: {1}. Portal: {2}.").format(
+				self.name,
+				decision_label,
+				escape_html(self.credential_portal or ""),
+			)
+		else:
+			activity = _(
+				"Verification request {0}: {1}. Document: {2}."
+			).format(self.name, decision_label, self.document_title)
+			if self.status == "Rejected":
+				activity = _("{0} Reviewer note: {1}").format(
+					activity, str(self.rejection_reason or "").strip()
+				)
+		self.add_comment("Comment", activity)

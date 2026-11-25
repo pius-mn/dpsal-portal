@@ -33,13 +33,13 @@ export default {
 	theme: {
 		extend: {
 			colors: {
-				canvas: { DEFAULT: "#edf0ee", soft: "#f5f7f5" },
+				canvas: { DEFAULT: "#f4f5f2", soft: "#fafbf9" },
 				paper: "#ffffff",
 				ink: { DEFAULT: "#12211d", soft: "#35443f" },
 				muted: { DEFAULT: "#63716c", strong: "#4a5953" },
-				line: { DEFAULT: "#dbe2de", strong: "#c4cfc9" },
-				bottle: { DEFAULT: "#14483c", deep: "#0b332b", soft: "#e6efeb" },
-				brass: { DEFAULT: "#a2833f", strong: "#856a2f", soft: "#f5eedf" },
+				line: { DEFAULT: "#dde3de", strong: "#c7d0ca" },
+				bottle: { DEFAULT: "#16382e", deep: "#102b23", soft: "#e7efea" },
+				brass: { DEFAULT: "#a88438", strong: "#8a6b28", soft: "#f5eedf" },
 				seal: { DEFAULT: "#8f3a30", soft: "#f8eae7" },
 				focus: "#2f7a63",
 			},

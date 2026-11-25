@@ -24,6 +24,16 @@ export const signupFields = [
 	{ name: "notes", label: "What should our team know?", type: "textarea", maxlength: 2000, rows: 3, placeholder: "Audit timing, scope, or requirements" },
 ].map((field) => ({ inputProps: { size: "lg", variant: "outline" }, ...field }))
 
+export const credentialFields = [
+	{ name: "portal_name", label: "Portal name", required: true, autocomplete: "organization", maxlength: 140, placeholder: "For example, tax portal or online banking" },
+	{ name: "portal_url", label: "Portal URL", type: "url", maxlength: 500, placeholder: "https://" },
+	{ name: "username", label: "Username", required: true, autocomplete: "username", maxlength: 140 },
+	{ name: "password", label: "Password", type: "password", required: true, autocomplete: "new-password", maxlength: 500 },
+	{ name: "credential_type", label: "Credential type", type: "select", required: true, options: options(["Portal Login", "Tax Portal", "Banking", "Other"]) },
+	{ name: "access_level", label: "Access level", type: "select", required: true, options: options(["Full Rights", "Admin", "Limited", "View"]) },
+	{ name: "notes", label: "Notes for your audit team", type: "textarea", maxlength: 2000, rows: 3, placeholder: "Do not include one-time codes or security answers." },
+].map((field) => ({ inputProps: { size: "lg", variant: "outline" }, ...field }))
+
 export const governanceTypes = ["Client Shareholder", "Client Beneficial Owner", "Client Board Member"]
 export const auditRecordTypes = ["Client Bank Account", "Client Budget Line"]
 

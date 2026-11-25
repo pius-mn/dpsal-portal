@@ -106,9 +106,93 @@ function refreshStructureFields(frm, autoFill = false) {
 	})
 }
 
+function showCustomerCredentialPassword(message) {
+	const dialog = new frappe.ui.Dialog({
+		title: __("Credential password"),
+		fields: [
+			{
+				fieldtype: "Data",
+				fieldname: "portal_name",
+				label: __("Portal"),
+				read_only: 1,
+				default: message.portal_name || "",
+			},
+			{
+				fieldtype: "Data",
+				fieldname: "username",
+				label: __("Username"),
+				read_only: 1,
+				default: message.username || "",
+			},
+			{
+				fieldtype: "Data",
+				fieldname: "password",
+				label: __("Password"),
+				read_only: 1,
+				default: message.password || "",
+			},
+			{
+				fieldtype: "HTML",
+				fieldname: "audit_notice",
+				options: `<p class="text-muted small">${__(
+					"This reveal was recorded in the Customer activity timeline."
+				)}</p>`,
+			},
+		],
+		primary_action_label: __("Close"),
+		primary_action() {
+			dialog.hide()
+		},
+	})
+	dialog.show()
+}
+
+function openCustomerCredentialReveal(frm) {
+	const rows = (frm.doc.custom_credentials || []).filter((row) => row.name)
+	if (!rows.length) return
+
+	const dialog = new frappe.ui.Dialog({
+		title: __("Reveal credential"),
+		fields: [
+			{
+				fieldtype: "Select",
+				fieldname: "credential_name",
+				label: __("Credential"),
+				reqd: 1,
+				options: rows.map((row) => ({
+					value: row.name,
+					label: `${row.portal_name || __("Portal")} — ${row.username || row.name}`,
+				})),
+				default: rows[0].name,
+			},
+		],
+		primary_action_label: __("Reveal"),
+		primary_action(values) {
+			dialog.hide()
+			frappe.call({
+				method: "audit_portal.api.credentials.reveal_client_credential",
+				args: { credential_name: values.credential_name },
+				freeze: true,
+				freeze_message: __("Revealing credential..."),
+				callback(response) {
+					if (response.message) showCustomerCredentialPassword(response.message)
+				},
+			})
+		},
+	})
+	dialog.show()
+}
+
 frappe.ui.form.on("Customer", {
 	refresh(frm) {
 		refreshStructureFields(frm)
+		if ((frm.doc.custom_credentials || []).some((row) => row.name)) {
+			frm.add_custom_button(
+				__("Reveal credential"),
+				() => openCustomerCredentialReveal(frm),
+				__("Credentials")
+			)
+		}
 	},
 	customer_type(frm) {
 		refreshStructureFields(frm, true)
